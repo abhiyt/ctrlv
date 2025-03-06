@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Copy-Paste</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        textarea { width: 80%; height: 150px; margin: 10px 0; }
+        .entry { border: 1px solid #ccc; padding: 10px; margin: 5px; display: flex; justify-content: space-between; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h1>Quick Copy-Paste Page</h1>
+    <textarea id="input" placeholder="Paste your text here..."></textarea><br>
+    <button onclick="saveText()">Save</button>
+    <button onclick="clearAll()">Clear All</button>
+    <input type="text" id="search" placeholder="Search..." oninput="searchText()"><br>
+    <div id="entries"></div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", loadSavedEntries);
+        
+        function saveText() {
+            const text = document.getElementById("input").value;
+            if (!text.trim()) return;
+            
+            addEntry(text);
+            saveToLocalStorage();
+            document.getElementById("input").value = "";
+        }
+        
+        function addEntry(text) {
+            const div = document.createElement("div");
+            div.className = "entry";
+            div.innerHTML = `
+                <span>${text}</span>
+                <button onclick="copyText(this)">Copy</button>
+                <button onclick="deleteText(this)">Delete</button>
+            `;
+            document.getElementById("entries").appendChild(div);
+        }
+        
+        function copyText(button) {
+            navigator.clipboard.writeText(button.parentElement.firstChild.textContent);
+            alert("Copied to clipboard!");
+        }
+        
+        function deleteText(button) {
+            button.parentElement.remove();
+            saveToLocalStorage();
+        }
+        
+        function clearAll() {
+            document.getElementById("entries").innerHTML = "";
+            localStorage.removeItem("savedEntries");
+        }
+        
+        function saveToLocalStorage() {
+            const entries = Array.from(document.querySelectorAll(".entry span"))
+                                .map(span => span.textContent);
+            localStorage.setItem("savedEntries", JSON.stringify(entries));
+        }
+        
+        function loadSavedEntries() {
+            const savedEntries = JSON.parse(localStorage.getItem("savedEntries")) || [];
+            savedEntries.forEach(addEntry);
+        }
+        
+        function searchText() {
+            const searchValue = document.getElementById("search").value.toLowerCase();
+            document.querySelectorAll(".entry").forEach(entry => {
+                const text = entry.firstChild.textContent.toLowerCase();
+                entry.classList.toggle("hidden", !text.includes(searchValue));
+            });
+        }
+        
+        document.addEventListener("paste", function(event) {
+            document.getElementById("input").value = event.clipboardData.getData("text");
+        });
+    </script>
+</body>
+</html>
