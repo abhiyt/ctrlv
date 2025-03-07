@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ctrl v - Ctrl c</title>
+    <title>Quick Copy-Paste</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
         textarea { width: 80%; height: 150px; margin: 10px 0; }
@@ -12,22 +12,25 @@
     </style>
 </head>
 <body>
-    <h1>Ctrl v - Ctrl c</h1>
+    <h1>Quick Copy-Paste Page</h1>
     <textarea id="input" placeholder="Paste your text here..."></textarea><br>
     <button onclick="saveText()">Save</button>
     <button onclick="clearAll()">Clear All</button>
+    <button onclick="shareLink()">Get Shareable Link</button>
     <input type="text" id="search" placeholder="Search..." oninput="searchText()"><br>
     <div id="entries"></div>
-
+    
     <script>
-        document.addEventListener("DOMContentLoaded", loadSavedEntries);
+        const JSONBIN_API_URL = "https://api.jsonbin.io/v3/b";
+        let binId = localStorage.getItem("binId") || "";
+
+        document.addEventListener("DOMContentLoaded", loadEntries);
         
         function saveText() {
             const text = document.getElementById("input").value;
             if (!text.trim()) return;
-            
             addEntry(text);
-            saveToLocalStorage();
+            saveToJsonBin();
             document.getElementById("input").value = "";
         }
         
@@ -49,23 +52,48 @@
         
         function deleteText(button) {
             button.parentElement.remove();
-            saveToLocalStorage();
+            saveToJsonBin();
         }
         
         function clearAll() {
             document.getElementById("entries").innerHTML = "";
-            localStorage.removeItem("savedEntries");
+            localStorage.removeItem("binId");
+            binId = "";
         }
         
-        function saveToLocalStorage() {
+        function saveToJsonBin() {
             const entries = Array.from(document.querySelectorAll(".entry span"))
                                 .map(span => span.textContent);
-            localStorage.setItem("savedEntries", JSON.stringify(entries));
+            const content = { entries };
+            
+            const requestData = {
+                method: binId ? "PUT" : "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": "$2a$10$NyfP6PQm7OhnUIDwx5JpRehMXlzhwWqkYXcZ4qH37fVPbTLDZUCtC"  // Replace with your JSONBin secret key
+                },
+                body: JSON.stringify(content)
+            };
+            
+            fetch(binId ? `${JSONBIN_API_URL}/${binId}` : JSONBIN_API_URL, requestData)
+            .then(response => response.json())
+            .then(data => {
+                binId = data.metadata.id;
+                localStorage.setItem("binId", binId);
+            })
+            .catch(error => console.error("Error saving to JSONBin:", error));
         }
         
-        function loadSavedEntries() {
-            const savedEntries = JSON.parse(localStorage.getItem("savedEntries")) || [];
-            savedEntries.forEach(addEntry);
+        function loadEntries() {
+            if (!binId) return;
+            fetch(`${JSONBIN_API_URL}/${binId}`, {
+                headers: { "X-Master-Key": "$2b$10$YourSecretKeyHere" }
+            })
+            .then(response => response.json())
+            .then(data => {
+                (data.record.entries || []).forEach(addEntry);
+            })
+            .catch(error => console.error("Error loading JSONBin:", error));
         }
         
         function searchText() {
@@ -76,9 +104,15 @@
             });
         }
         
-        document.addEventListener("paste", function(event) {
-            document.getElementById("input").value = event.clipboardData.getData("text");
-        });
+        function shareLink() {
+            if (!binId) {
+                alert("Save something first to generate a shareable link!");
+                return;
+            }
+            const url = `${JSONBIN_API_URL}/${binId}`;
+            navigator.clipboard.writeText(url);
+            alert("Shareable link copied to clipboard: " + url);
+        }
     </script>
 </body>
 </html>
